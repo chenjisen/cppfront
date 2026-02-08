@@ -1,7 +1,7 @@
 
 //  Copyright 2022-2026 Herb Sutter
 //  SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
+//  
 //  Part of the Cppfront Project, under the Apache License v2.0 with LLVM Exceptions.
 //  See https://github.com/hsutter/cppfront/blob/main/LICENSE for license information.
 
@@ -223,7 +223,7 @@ struct literal_node {
             if (
                 !std::exchange(first, false)
                 && p->as_string_view().starts_with("\"")
-                )
+                ) 
             {
                 ret += " ";
             }
@@ -1104,7 +1104,7 @@ struct postfix_expression_node
         return ops.empty() && expr->is_expression_list();
     }
 
-    auto get_expression_list()
+    auto get_expression_list() 
         -> expression_list_node *
     {
         if (is_expression_list()) {
@@ -1206,7 +1206,7 @@ auto prefix_expression_node::is_expression_list() const
     return ops.empty() && expr->is_expression_list();
 }
 
-auto prefix_expression_node::get_expression_list()
+auto prefix_expression_node::get_expression_list() 
     -> expression_list_node *
 {
     if (is_expression_list()) {
@@ -1869,7 +1869,7 @@ struct is_as_expression_node
         return ops.empty() && expr->is_expression_list();
     }
 
-    auto get_expression_list()
+    auto get_expression_list() 
         -> expression_list_node *
     {
         if (is_expression_list()) {
@@ -2286,7 +2286,7 @@ struct selection_statement_node
     std::unique_ptr<logical_or_expression_node> expression;
     std::unique_ptr<compound_statement_node>    true_branch;
     std::unique_ptr<compound_statement_node>    false_branch;
-    bool                                        has_source_false_branch =
+    bool                                        has_source_false_branch = 
 false;
 
     auto get_identifier() const
@@ -2785,7 +2785,7 @@ auto alternative_node::visit(auto& v, int depth)
     v.end(*this, depth);
 }
 
-auto compound_statement_node::add_statement(
+auto compound_statement_node::add_statement( 
     std::unique_ptr<statement_node>&& statement,
     int                               before_pos
 )
@@ -2927,7 +2927,7 @@ struct parameter_declaration_list_node
 
     std::vector<std::unique_ptr<parameter_declaration_node>> parameters;
 
-    parameter_declaration_list_node(bool f = false, bool t = false, bool s = false)
+    parameter_declaration_list_node(bool f = false, bool t = false, bool s = false) 
         : in_function_typeid{f}
         , in_template_param_list{t}
         , in_statement_param_list{s}
@@ -2951,7 +2951,7 @@ struct parameter_declaration_list_node
         if (
             !verbose
             && std::ssize(ret) > 3
-            )
+            ) 
         {
             ret.resize( std::ssize(ret) - 2 );   // omit the final ", "
         }
@@ -3066,7 +3066,7 @@ struct function_type_node
         assert (parameters);
 
         auto ret = parameters->to_string();
-
+        
         if (throws) {
             ret += " throws";
         }
@@ -4729,7 +4729,7 @@ auto parameter_declaration_node::to_string(
     }
 
     if (
-        verbose
+        verbose 
         || pass != passing_style::in
         )
     {
@@ -6264,8 +6264,8 @@ auto pretty_print_visualize(namespace_node const&)
 
 
 auto pretty_print_visualize(
-    declaration_node const& n,
-    int                     indent,
+    declaration_node const& n, 
+    int                     indent, 
     bool                    include_metafunctions_list /* = false */,
     bool                    verbose /* = true */
 )
@@ -6605,7 +6605,7 @@ public:
     //
     //  errors      error list
     //
-    parser(
+    parser( 
         std::vector<error_entry>& errors_,
         std::set<std::string>&    includes_,
         std::vector<std::string>& extra_cpp1_,
@@ -7129,7 +7129,7 @@ private:
                 }
             }
             else if (
-                (
+                ( 
                     term.op->type() == lexeme::EllipsisLess
                     || term.op->type() == lexeme::EllipsisEqual
                     )
@@ -8050,7 +8050,7 @@ private:
 
         n->ids.push_back( std::move(term) );
 
-        for (
+        for ( 
             auto first_time_through_loop = true;
             curr().type() == lexeme::Scope;
             first_time_through_loop = false
@@ -8069,7 +8069,7 @@ private:
                 && first_uid_was_std
                 && term.scope_op->type() == lexeme::Scope
                 && *term.id->identifier == "forward"
-                )
+                ) 
             {
                 error("std::forward is not needed in Cpp2 - use 'forward' parameters/arguments instead", false);
                 return {};
@@ -8722,7 +8722,7 @@ private:
         }
 
         if (
-            peek(1)
+            peek(1) 
             && *peek(1) == "namespace"
             )
         {
@@ -8898,7 +8898,7 @@ private:
             assert (n->is_return());
             return;
         }
-
+        
         else if (auto s = jump_statement()) {
             n->statement = std::move(s);
             assert (n->is_jump());
@@ -10051,7 +10051,7 @@ private:
                 {
                     auto& type = std::get<declaration_node::an_object>(n->type);
                     // object initialized by the address of the curr() object
-                    if (peek(1)->type() == lexeme::Ampersand
+                    if (peek(1)->type() == lexeme::Ampersand 
                         && (!peek(2) || peek(2)->type() == lexeme::Semicolon))
                     {
                         type->address_of = &curr();
@@ -10712,7 +10712,7 @@ public:
 
     auto start(literal_node const&, int indent) -> void
     {
-        // o << pre(indent) << "literal" << "\n";
+        o << pre(indent) << "literal" << "\n";
     }
 
     auto start(expression_node const& n, int indent) -> void
@@ -10737,23 +10737,23 @@ public:
 
     auto start(primary_expression_node const&, int indent) -> void
     {
-        // o << pre(indent) << "primary-expression\n";
+        o << pre(indent) << "primary-expression\n";
     }
 
     auto start(prefix_expression_node const&, int indent) -> void
     {
-        // o << pre(indent) << "prefix-expression\n";
+        o << pre(indent) << "prefix-expression\n";
     }
 
     auto start(is_as_expression_node const&, int indent) -> void
     {
-        // o << pre(indent) << "is-as-expression\n";
+        o << pre(indent) << "is-as-expression\n";
     }
 
     template<String Name, typename Term>
     auto start(binary_expression_node<Name, Term> const&, int indent) -> void
     {
-        // o << pre(indent) << Name.value << "-expression";
+        o << pre(indent) << Name.value << "-expression\n";
     }
 
     auto start(expression_statement_node const& n, int indent) -> void
@@ -10763,7 +10763,7 @@ public:
 
     auto start(postfix_expression_node const&, int indent) -> void
     {
-        // o << pre(indent) << "postfix-expression\n";
+        o << pre(indent) << "postfix-expression\n";
     }
 
     auto start(unqualified_id_node const&, int indent) -> void
