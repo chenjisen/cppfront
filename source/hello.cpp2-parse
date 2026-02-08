@@ -1,0 +1,200 @@
+
+
+--- Parse tree
+translation-unit
+  declaration [01271420]
+    parent: [00000000]
+    is_variadic: [false]
+    is_constexpr: false
+    function
+  declaration identifier
+    unqualified-id
+      Identifier: main
+      function
+        throws: false
+        parameter-declaration-list
+          in_function_type false
+          in_template_param_list false
+    statement
+      compound-statement
+        statement
+          expression-statement - [01292BE8]
+            expression - 1 subexpressions, my_statement [01292BE8]
+                                              id-expression
+                                                qualified-id
+                                                  unqualified-id
+                                                    Identifier: std
+                                                  Scope: ::
+                                                  unqualified-id
+                                                    Identifier: cout
+                                  LeftShift: <<
+                                                StringLiteral: "test parser: "
+                                  LeftShift: <<
+                                              expression-list
+                                                expression-list term
+                                                  expression - 0 subexpressions, my_statement [01292BE8]
+                                                                                      DecimalLiteral: 1
+                                                                          Plus: +
+                                                                                      DecimalLiteral: 2
+                                                                            Multiply: *
+                                                                                      DecimalLiteral: 3
+                                                                          Minus: -
+                                                                                      DecimalLiteral: 4
+                                                                            Slash: /
+                                                                                      DecimalLiteral: 5
+                                                            Pipe: |
+                                                                                      DecimalLiteral: 6
+                                                                Ampersand: &
+                                                                                      DecimalLiteral: 7
+                                  LeftShift: <<
+                                                StringLiteral: "\n"
+        statement
+          declaration [01276538]
+            parent: [01271420]
+            is_variadic: [false]
+            is_constexpr: false
+            object
+          declaration identifier
+            unqualified-id
+              Identifier: numbers
+              type-id
+                qualified-id
+                  unqualified-id
+                    Identifier: std
+                  Scope: ::
+                  unqualified-id
+                    Identifier: vector
+            statement
+              expression-statement - [01292C48]
+                expression - 2 subexpressions, my_statement [01292C48]
+                                                  expression-list
+                                                    expression-list term
+                                                      expression - 0 subexpressions, my_statement [01292C48]
+                                                                                    Minus: -
+                                                                                          DecimalLiteral: 1
+                                                    expression-list term
+                                                      expression - 0 subexpressions, my_statement [01292C48]
+                                                                                          DecimalLiteral: 123
+        statement
+          expression-statement - [01292BD8]
+            expression - 6 subexpressions, my_statement [01292BD8]
+                                              id-expression
+                                                qualified-id
+                                                  unqualified-id
+                                                    Identifier: std
+                                                  Scope: ::
+                                                  unqualified-id
+                                                    Identifier: cout
+                                  LeftShift: <<
+                                              id-expression
+                                                unqualified-id
+                                                  Identifier: numbers
+                                            LeftBracket: [
+                                            expression-list
+                                              expression-list term
+                                                expression - 0 subexpressions, my_statement [01292BD8]
+                                                                                    DecimalLiteral: 0
+                                  LeftShift: <<
+                                                StringLiteral: " -> "
+                                  LeftShift: <<
+                                              id-expression
+                                                unqualified-id
+                                                  Identifier: foo
+                                            LeftParen: (
+                                            expression-list
+                                              expression-list term
+                                                expression - 2 subexpressions, my_statement [01292BD8]
+                                                                                  id-expression
+                                                                                    unqualified-id
+                                                                                      Identifier: numbers
+                                                                                LeftBracket: [
+                                                                                expression-list
+                                                                                  expression-list term
+                                                                                    expression - 0 subexpressions, my_statement [01292BD8]
+                                                                                                                        DecimalLiteral: 0
+                                  LeftShift: <<
+                                                StringLiteral: "\n"
+        statement
+          expression-statement - [012B72D8]
+            expression - 6 subexpressions, my_statement [012B72D8]
+                                              id-expression
+                                                qualified-id
+                                                  unqualified-id
+                                                    Identifier: std
+                                                  Scope: ::
+                                                  unqualified-id
+                                                    Identifier: cout
+                                  LeftShift: <<
+                                              id-expression
+                                                unqualified-id
+                                                  Identifier: numbers
+                                            LeftBracket: [
+                                            expression-list
+                                              expression-list term
+                                                expression - 0 subexpressions, my_statement [012B72D8]
+                                                                                    DecimalLiteral: 1
+                                  LeftShift: <<
+                                                StringLiteral: " -> "
+                                  LeftShift: <<
+                                              id-expression
+                                                unqualified-id
+                                                  Identifier: foo
+                                            LeftParen: (
+                                            expression-list
+                                              expression-list term
+                                                expression - 2 subexpressions, my_statement [012B72D8]
+                                                                                  id-expression
+                                                                                    unqualified-id
+                                                                                      Identifier: numbers
+                                                                                LeftBracket: [
+                                                                                expression-list
+                                                                                  expression-list term
+                                                                                    expression - 0 subexpressions, my_statement [012B72D8]
+                                                                                                                        DecimalLiteral: 1
+                                  LeftShift: <<
+                                                StringLiteral: "\n"
+  declaration [012B53A0]
+    parent: [00000000]
+    is_variadic: [false]
+    is_constexpr: false
+    function
+  declaration identifier
+    unqualified-id
+      Identifier: foo
+      function
+        throws: false
+        returns by: move
+        parameter-declaration-list
+          in_function_type false
+          in_template_param_list false
+          parameter-declaration
+            in            
+            declaration [012B5410]
+              parent: [012B53A0]
+              is_variadic: [false]
+              is_constexpr: false
+              object
+            declaration identifier
+              unqualified-id
+                Identifier: n
+                type-id
+                  unqualified-id
+                    Keyword: int
+        type-id
+          unqualified-id
+            Keyword: double
+    statement
+      compound-statement
+        statement
+          return-statement
+            expression - 0 subexpressions, my_statement [00000000]
+                                              id-expression
+                                                unqualified-id
+                                                  Identifier: n
+                                      Slash: /
+                                                FloatLiteral: 2.0
+
+
+--- Function body extents
+    1-6
+    8-10

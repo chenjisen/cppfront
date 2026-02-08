@@ -1,0 +1,10 @@
++/* 2 */ main: () = {
++/* 2 */     std::cout << "test parser: " << (1+2*3-4/5|6&7) << "\n";
++/* 2 */     numbers: std::vector = ( -1, 123 );
++/* 2 */     std::cout << numbers[0] << " -> " << foo( numbers[0] ) << "\n";
++/* 2 */     std::cout << numbers[1] << " -> " << foo( numbers[1] ) << "\n";
++/* 2 */ }
++/* 2 */ 
++/* 2 */ foo: (n: int) -> double = {
++/* 2 */     return n / 2.0;
++/* 2 */ }
