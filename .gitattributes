@@ -1,5 +1,1 @@
-* text=auto
-
-# Text files to always be normalized and converted to native line endings on checkout
-*.output text
-*.execution text
+* text=auto eol=lf
