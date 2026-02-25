@@ -9553,9 +9553,6 @@ private:
     }
 
 
-    auto apply_type_metafunctions( declaration_node& decl )
-        -> bool;
-
 
     //G unnamed-declaration:
     //G     ':' meta-functions? template-parameters? function-type requires-clause? '=' statement
@@ -10064,17 +10061,6 @@ private:
                 "a user-defined type initializer must be a compound-expression consisting of declarations"
             );
             return {};
-        }
-
-        //  If this is a type with metafunctions, apply those
-        if (n->is_type()) {
-            if (!apply_type_metafunctions(*n)) {
-                error(
-                    "error encountered while applying type metafunctions",
-                    false, {}, true
-                );
-                return {};
-            }
         }
 
         if (
