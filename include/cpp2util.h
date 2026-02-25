@@ -1,7 +1,7 @@
 
 //  Copyright 2022-2026 Herb Sutter
 //  SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//  
+//
 //  Part of the Cppfront Project, under the Apache License v2.0 with LLVM Exceptions.
 //  See https://github.com/hsutter/cppfront/blob/main/LICENSE for license information.
 
@@ -23,18 +23,18 @@
 //
 //      These should not be used by the program. They form the language
 //      support library intended to be called only from generated code.
-// 
+//
 //      For example, if a Cpp2 function leaves a local variable
 //      uninitialized, cppfront will generate uses of impl::deferred_init<>
 //      under the covers and guarantee it is constructed exactly once, so
 //      the implementation here doesn't need to check for double construction
 //      because it can't happen; using the name impl::deferred_init directly
 //      from program code is not supported.
-// 
+//
 //===========================================================================
 
-#ifndef CPP2_UTIL_H
-#define CPP2_UTIL_H
+#ifndef CPP2_CPP2UTIL_H
+#define CPP2_CPP2UTIL_H
 
 //  If this implementation doesn't support source_location yet, disable it
 #include <version>
@@ -277,6 +277,7 @@
     #if defined(CPP2_USE_SOURCE_LOCATION)
         #include <source_location>
     #endif
+    #include <set>
     #include <span>
     #include <string>
     #include <string_view>
@@ -326,10 +327,10 @@
                                     // these redundant goto's to avoid 'unused label' warnings
 
 //  Compiler version identification.
-// 
+//
 //  This can use useful with 'if constexpr' to disable code known not to
 //  work on some otherwise-supported compilers (without macros), for example:
-// 
+//
 //    //  Disable tests on lower-level compilers that have blocking bugs
 //    []<auto V = gcc_clang_msvc_min_versions(1400, 1600, 1920)> () { if constexpr (V) {
 //        // ... tests that would fail due to older compilers' bugs ...
@@ -368,8 +369,6 @@ constexpr auto gcc_clang_msvc_min_versions(
     #define CPP2_CONSTEXPR constexpr
 #endif
 
-
-namespace cpp2 {
 
 // Workaround <https://github.com/llvm/llvm-project/issues/70556>.
 #define CPP2_FORCE_INLINE_LAMBDA_CLANG /* empty */
@@ -453,22 +452,160 @@ using _uchar     = unsigned char;    // normally use u8 instead
 
 //-----------------------------------------------------------------------
 //
+//  An implementation of GSL's narrow_cast with a clearly 'unchecked' name
+//
+//-----------------------------------------------------------------------
+//
+namespace impl {
+
+template< typename To, typename From >
+constexpr auto is_narrowing_v =
+    // [dcl.init.list] 7.1
+    (std::is_floating_point_v<From> && std::is_integral_v<To>) ||
+    // [dcl.init.list] 7.2
+    (std::is_floating_point_v<From> && std::is_floating_point_v<To> && sizeof(From) > sizeof(To)) || // NOLINT(misc-redundant-expression)
+    // [dcl.init.list] 7.3
+    (std::is_integral_v<From> && std::is_floating_point_v<To>) ||
+    (std::is_enum_v<From> && std::is_floating_point_v<To>) ||
+    // [dcl.init.list] 7.4
+    (std::is_integral_v<From> && std::is_integral_v<To> && sizeof(From) > sizeof(To)) || // NOLINT(misc-redundant-expression)
+    (std::is_enum_v<From> && std::is_integral_v<To> && sizeof(From) > sizeof(To)) ||
+    // [dcl.init.list] 7.5
+    (std::is_pointer_v<From> && std::is_same_v<To, bool>)
+    ;
+
+}
+
+
+template <typename C, typename X>
+constexpr auto unchecked_narrow( X x ) noexcept
+    -> decltype(auto)
+    requires (
+        impl::is_narrowing_v<C, X>
+        || (
+            std::is_arithmetic_v<C>
+            && std::is_arithmetic_v<X>
+            )
+        )
+{
+    return static_cast<C>(x);
+}
+
+
+template <typename C, typename X>
+constexpr auto unchecked_cast( X&& x ) noexcept
+    -> decltype(auto)
+{
+    return static_cast<C>(CPP2_FORWARD(x));
+}
+
+
+//-----------------------------------------------------------------------
+//
+//  contract_group
+//
+//-----------------------------------------------------------------------
+//
+
+#ifdef CPP2_USE_SOURCE_LOCATION
+    #define CPP2_SOURCE_LOCATION_PARAM              , [[maybe_unused]] std::source_location where
+    #define CPP2_SOURCE_LOCATION_PARAM_WITH_DEFAULT , [[maybe_unused]] std::source_location where = std::source_location::current()
+    #define CPP2_SOURCE_LOCATION_PARAM_SOLO         [[maybe_unused]] std::source_location where
+    #define CPP2_SOURCE_LOCATION_ARG                , where
+    #define CPP2_SOURCE_LOCATION_VALUE              (cpp2::to_string(where.file_name()) + "(" + cpp2::to_string(where.line()) + ") " + where.function_name())
+#else
+    #define CPP2_SOURCE_LOCATION_PARAM
+    #define CPP2_SOURCE_LOCATION_PARAM_WITH_DEFAULT
+    #define CPP2_SOURCE_LOCATION_PARAM_SOLO
+    #define CPP2_SOURCE_LOCATION_ARG
+    #define CPP2_SOURCE_LOCATION_VALUE              std::string("")
+#endif
+
+//  For C++23: make this std::string_view and drop the macro
+//      Before C++23 std::string_view was not guaranteed to be trivially copyable,
+//      and so in<T> will pass it by const& and really it should be by value
+#define CPP2_MESSAGE_PARAM  char const*
+#define CPP2_CONTRACT_MSG   cpp2::message_to_cstr_adapter
+
+inline auto message_to_cstr_adapter( CPP2_MESSAGE_PARAM msg ) -> CPP2_MESSAGE_PARAM { return msg ? msg : ""; }
+inline auto message_to_cstr_adapter( std::string const& msg ) -> CPP2_MESSAGE_PARAM { return msg.c_str(); }
+
+class contract_group {
+public:
+    using handler = void (*)(CPP2_MESSAGE_PARAM msg CPP2_SOURCE_LOCATION_PARAM);
+
+    constexpr contract_group  (handler h = {}) : reporter{h} { }
+    constexpr auto set_handler(handler h = {}) { reporter = h; }
+    constexpr auto is_active  () const -> bool    { return reporter != handler{}; }
+
+    constexpr auto enforce(bool b, CPP2_MESSAGE_PARAM msg = "" CPP2_SOURCE_LOCATION_PARAM_WITH_DEFAULT)
+                                          -> void { if (!b) report_violation(msg CPP2_SOURCE_LOCATION_ARG); }
+    constexpr auto report_violation(CPP2_MESSAGE_PARAM msg = "" CPP2_SOURCE_LOCATION_PARAM_WITH_DEFAULT)
+                                          -> void { if (reporter) reporter(msg CPP2_SOURCE_LOCATION_ARG); }
+private:
+    handler reporter;
+};
+
+[[noreturn]] inline auto report_and_terminate(std::string_view group, CPP2_MESSAGE_PARAM msg = "" CPP2_SOURCE_LOCATION_PARAM_WITH_DEFAULT) noexcept -> void {
+    std::cerr
+#ifdef CPP2_USE_SOURCE_LOCATION
+        << where.file_name() << "("
+        << where.line() << ") "
+        << where.function_name() << ": "
+#endif
+        << group << " violation";
+    if (msg && msg[0] != '\0') {
+        std::cerr << ": " << msg;
+    }
+    std::cerr << "\n";
+    std::exit(EXIT_FAILURE);
+}
+
+auto inline cpp2_default = contract_group(
+    [](CPP2_MESSAGE_PARAM msg CPP2_SOURCE_LOCATION_PARAM)noexcept {
+        report_and_terminate("Contract",      msg CPP2_SOURCE_LOCATION_ARG);
+    }
+);
+auto inline bounds_safety = contract_group(
+    [](CPP2_MESSAGE_PARAM msg CPP2_SOURCE_LOCATION_PARAM)noexcept {
+        report_and_terminate("Bounds safety", msg CPP2_SOURCE_LOCATION_ARG);
+    }
+);
+auto inline null_safety = contract_group(
+    [](CPP2_MESSAGE_PARAM msg CPP2_SOURCE_LOCATION_PARAM)noexcept {
+        report_and_terminate("Null safety",   msg CPP2_SOURCE_LOCATION_ARG);
+    }
+);
+auto inline type_safety = contract_group(
+    [](CPP2_MESSAGE_PARAM msg CPP2_SOURCE_LOCATION_PARAM)noexcept {
+        report_and_terminate("Type safety",   msg CPP2_SOURCE_LOCATION_ARG);
+    }
+);
+auto inline testing = contract_group(
+    [](CPP2_MESSAGE_PARAM msg CPP2_SOURCE_LOCATION_PARAM)noexcept {
+        report_and_terminate("Testing",       msg CPP2_SOURCE_LOCATION_ARG);
+    }
+);
+
+
+//-----------------------------------------------------------------------
+//
 //  Conveniences for expressing Cpp1 references (rarely useful)
-// 
+//
 //  Note: Only needed in rare cases to take full control of matching an
 //        odd Cpp1 signature exactly. Most cases don't need this... for
 //        example, a Cpp1 virtual function signature declaration like
-// 
+//
 //              virtual void myfunc(int& val) const
-// 
+//
 //        can already be directly overriden by a Cpp2 declaration of
-// 
+//
 //              myfunc: (override this, inout val: int)
 //                  // identical to this in Cpp1 syntax:
 //                  //  void myfunc(int& val) const override
-// 
+//
 //        without any need to say cpp1_ref on the int parameter.
-// 
+//
 //-----------------------------------------------------------------------
 //
 template <typename T>
@@ -598,9 +735,9 @@ concept predicate_member_fun = requires (X x, O o) {
 
 template <typename F, typename X>
 concept valid_custom_is_operator = predicate_member_fun<X, F, &F::op_is>
-                      && ( 
+                      && (
                         !defined<argument_of_op_is_t<F>>
-                        || brace_initializable_to<X, argument_of_op_is_t<F>> 
+                        || brace_initializable_to<X, argument_of_op_is_t<F>>
                       );
 
 template <typename T, typename U>
@@ -688,7 +825,7 @@ constexpr auto type_find_if(F&& fun)
     [&]<std::size_t... Is>(std::index_sequence<Is...>){
         if constexpr ((requires { {CPP2_FORWARD(fun)(type_it<Is, Ts>{})} -> boolean_testable;} && ...)) {
             ((CPP2_FORWARD(fun)(type_it<Is, Ts>{}) && (found = Is, true)) || ...);
-        } 
+        }
     }(std::index_sequence_for<Ts...>());
     return found;
 }
@@ -748,7 +885,7 @@ template <class T> struct dependent_false : std::false_type {};
 
 
 //-----------------------------------------------------------------------
-// 
+//
 //  Invalid/null dereference checking - cases that would result in UB.
 //
 //     - Null pointer
@@ -814,9 +951,9 @@ constexpr auto assert_not_null(auto&& arg CPP2_SOURCE_LOCATION_PARAM_WITH_DEFAUL
 
 
 //-----------------------------------------------------------------------
-// 
+//
 //  Integer divide-by-zero checking - cases that would result in UB.
-//  
+//
 //  Notes:
 //      NumType is the Numerator type
 //      arg is the denominator value
@@ -860,7 +997,7 @@ constexpr auto assert_not_zero(auto&& arg CPP2_SOURCE_LOCATION_PARAM_WITH_DEFAUL
 
 
 //-----------------------------------------------------------------------
-// 
+//
 //  Subscript bounds checking - cases that would result in UB.
 //
 #define CPP2_ASSERT_IN_BOUNDS_IMPL \
@@ -940,7 +1077,7 @@ constexpr auto process_type_name(std::string_view name) -> std::string_view {
 
 template<typename T>
 constexpr auto type_name() -> std::string_view {
-#if defined(__clang__) || defined(__GNUC__)    
+#if defined(__clang__) || defined(__GNUC__)
     constexpr auto ret = process_type_name(__PRETTY_FUNCTION__);
 #elif defined(_MSC_VER)
     constexpr auto ret = process_type_name(__FUNCSIG__);
@@ -950,7 +1087,7 @@ constexpr auto type_name() -> std::string_view {
     return ret;
 }
 
-#endif 
+#endif
 
 //-----------------------------------------------------------------------
 //
@@ -970,10 +1107,10 @@ constexpr auto type_name() -> std::string_view {
 [[noreturn]] auto Throw(auto&& x, [[maybe_unused]] char const* msg) -> void {
 #ifdef CPP2_NO_EXCEPTIONS
     auto err = std::string{"exceptions are disabled with -fno-exceptions - attempted to throw exception with type \""};
- 
+
     #ifdef CPP2_NO_RTTI
     err += type_name<decltype(x)>();
-    #else 
+    #else
     err += typeid(decltype(x)).name();
     #endif
     err += "\"";
@@ -1251,7 +1388,7 @@ inline auto to_string(auto const& x) -> std::string
     }
 
     //  Else customize convertible-to-bool - use { } to avoid narrowing
-    if constexpr( requires{ bool{x}; } ) 
+    if constexpr( requires{ bool{x}; } )
     {
         return x ? "true" : "false";
     }
@@ -1694,7 +1831,7 @@ auto as(X&& x CPP2_SOURCE_LOCATION_PARAM_WITH_DEFAULT_AS) -> decltype(auto)
 {
     constness_like_t<C, decltype(x)>* ptr = nullptr;
     type_find_if(CPP2_FORWARD(x), [&]<typename It>(It const&) -> bool {
-        if constexpr (std::is_same_v< typename It::type, C >) { if (CPP2_FORWARD(x).index() ==  It::index) { ptr = &std::get<It::index>(x); return true; } }; 
+        if constexpr (std::is_same_v< typename It::type, C >) { if (CPP2_FORWARD(x).index() ==  It::index) { ptr = &std::get<It::index>(x); return true; } };
         return false;
     });
     if (!ptr) { Throw( std::bad_variant_access(), "'as' cast failed for 'variant'"); }
@@ -1712,7 +1849,7 @@ constexpr auto is( X const& x ) -> bool{
     if (!x.has_value()) {
         return std::is_same_v<T,empty>;
     }
-    return x.type() == Typeid<T>(); 
+    return x.type() == Typeid<T>();
 }
 
 //  is Value
@@ -1751,11 +1888,11 @@ constexpr auto as( X && x ) -> decltype(auto) {
 //  is Type
 //
 template<typename T, specialization_of_template<std::optional> X>
-constexpr auto is( X const& x ) -> bool { 
+constexpr auto is( X const& x ) -> bool {
     if (!x.has_value()) {
         return std::same_as<T, empty>;
     }
-    return std::same_as<T, typename X::value_type> 
+    return std::same_as<T, typename X::value_type>
         || std::derived_from<std::remove_pointer_t<typename X::value_type>, std::remove_pointer_t<T>>;
 }
 
@@ -1780,7 +1917,7 @@ constexpr auto is( std::optional<T> const& x, auto&& value ) -> bool
 //  as
 //
 template<typename T, specialization_of_template<std::optional> X>
-constexpr auto as( X&& x ) -> decltype(auto) { 
+constexpr auto as( X&& x ) -> decltype(auto) {
     constness_like_t<T, X>* ptr = nullptr;
     if constexpr (requires { static_cast<constness_like_t<T, X>&>(*x); }) {
         if (x.has_value()) {
@@ -1990,7 +2127,7 @@ private:
 //
 //  Does not perform any dynamic memory allocation - each string_view
 //  is directly bound to the string provided by the host environment
-// 
+//
 //  Note: These string_views happen to be null-terminated. We ought
 //        to also have a std::zstring_view to express that...
 //
@@ -2054,11 +2191,11 @@ constexpr auto make_args(int argc, char** argv) -> args
 //  range: a range of [begin, end) or [first, last]
 //
 //  TT is the type we actually store for 'first' and 'last'.
-// 
+//
 //  If T is integral, store a widened representation to ensure that
 //  the past-the-end value is representable even if [first,last] are
 //  numeric_limits<T> [min,max].
-// 
+//
 //  This lets us represent all ranges as half-open ranges using just
 //  'first' and (possibly-adjusted-by-one) 'last' without any extra
 //  data or a Closed parameter etc. = single simpler implementation.
@@ -2069,12 +2206,12 @@ template<typename T>
 class range
 {
     using TT = std::conditional_t<
-        std::is_integral_v<T>, 
+        std::is_integral_v<T>,
         std::conditional_t<
-            std::is_signed_v<T>, 
-            std::ptrdiff_t, 
+            std::is_signed_v<T>,
+            std::ptrdiff_t,
             std::size_t
-        >, 
+        >,
         T
     >;
 
@@ -2097,7 +2234,7 @@ public:
         , last{ l }
     {
         //  Represent all ranges as half-open; after this we can forget the flag
-        if (include_last) { 
+        if (include_last) {
             if constexpr (std::integral<TT>) {
                 if (last == std::numeric_limits<TT>::max()) {
                     impl::Throw( std::runtime_error(
@@ -2105,7 +2242,7 @@ public:
                     ), "range with last == numeric_limits<T>::max() will overflow");
                 }
             }
-            ++last; 
+            ++last;
         }
     }
 
@@ -2122,7 +2259,7 @@ public:
         : range(f, l, include_last)
     {}
 
-    class iterator 
+    class iterator
     {
         TT first = T{};
         TT last  = T{};
@@ -2158,15 +2295,15 @@ public:
         //
         constexpr auto operator*() const -> T
         {
-            if (curr != last) { 
-                if constexpr (std::is_same_v<T, TT>) { 
+            if (curr != last) {
+                if constexpr (std::is_same_v<T, TT>) {
                     return curr;
                 }
                 else {
                     return unchecked_narrow<T>(curr);
                 }
             }
-            else { 
+            else {
                 return T{};
             }
         }
@@ -2180,8 +2317,8 @@ public:
         //  comparisons (these functions are valid if T is random-access)
         //
         constexpr auto operator[](difference_type i) const -> T {
-            if (curr + i != last) { 
-                if constexpr (std::is_same_v<T, TT>) { 
+            if (curr + i != last) {
+                if constexpr (std::is_same_v<T, TT>) {
                     return curr + i;
                 }
                 else {
@@ -2193,13 +2330,13 @@ public:
             }
         }
 
-        constexpr auto operator+=(difference_type i) -> iterator& 
+        constexpr auto operator+=(difference_type i) -> iterator&
             { if (curr + i <= last ) { curr += i; } else { curr = last;  }  return *this; }
-        constexpr auto operator-=(difference_type i) -> iterator& 
+        constexpr auto operator-=(difference_type i) -> iterator&
             { if (curr - i >= first) { curr -= i; } else { curr = first; }  return *this; }
 
-        friend 
-        constexpr auto operator+ (difference_type i, iterator const& iter) -> iterator 
+        friend
+        constexpr auto operator+ (difference_type i, iterator const& iter) -> iterator
             { auto ret = *iter;  return ret += i; }
 
         constexpr auto operator+ (difference_type i   ) const -> iterator        { auto ret = *this;  return ret += i; }
@@ -2219,9 +2356,9 @@ public:
     constexpr auto ssize()  const -> std::ptrdiff_t { return last - first; }
     constexpr auto empty()  const -> bool           { return first == last; }
 
-    constexpr auto front() const -> T { 
-        type_safety.enforce(!empty()); 
-        if constexpr (std::is_same_v<T, TT>) { 
+    constexpr auto front() const -> T {
+        type_safety.enforce(!empty());
+        if constexpr (std::is_same_v<T, TT>) {
             return first;
         }
         else {
@@ -2229,10 +2366,10 @@ public:
         }
     }
 
-    constexpr auto back() const -> T { 
-        type_safety.enforce(!empty()); 
-        if constexpr (std::is_same_v<T, TT>) { 
-            auto ret = last; 
+    constexpr auto back() const -> T {
+        type_safety.enforce(!empty());
+        if constexpr (std::is_same_v<T, TT>) {
+            auto ret = last;
             return --ret;
         }
         else {
@@ -2243,16 +2380,16 @@ public:
 
     constexpr auto operator[](difference_type i) const -> T
     {
-        if (0 <= i && i < ssize()) { 
-            if constexpr (std::is_same_v<T, TT>) { 
+        if (0 <= i && i < ssize()) {
+            if constexpr (std::is_same_v<T, TT>) {
                 return first + i;
             }
             else {
                 return unchecked_narrow<T>(first + i);
             }
         }
-        else { 
-            return T{}; 
+        else {
+            return T{};
         }
     }
 };
@@ -2279,8 +2416,8 @@ constexpr auto contains(range<T> const& r, auto const& t)
 
 template<typename T>
 constexpr auto sum(range<T> const& r)
-    -> T 
-{ 
+    -> T
+{
     return std::accumulate(r.begin(), r.end(), T{});
 }
 
@@ -2386,49 +2523,49 @@ inline auto fopen( const char* filename, const char* mode ) {
 //-----------------------------------------------------------------------
 //
 
-CPP2_FORCE_INLINE constexpr auto unchecked_cmp_less(auto&& t, auto&& u) 
+CPP2_FORCE_INLINE constexpr auto unchecked_cmp_less(auto&& t, auto&& u)
     -> decltype(auto)
     requires requires {CPP2_FORWARD(t) < CPP2_FORWARD(u);}
 {
     return CPP2_FORWARD(t) < CPP2_FORWARD(u);
 }
 
-CPP2_FORCE_INLINE constexpr auto unchecked_cmp_less_eq(auto&& t, auto&& u) 
+CPP2_FORCE_INLINE constexpr auto unchecked_cmp_less_eq(auto&& t, auto&& u)
     -> decltype(auto)
     requires requires {CPP2_FORWARD(t) <= CPP2_FORWARD(u);}
 {
     return CPP2_FORWARD(t) <= CPP2_FORWARD(u);
 }
 
-CPP2_FORCE_INLINE constexpr auto unchecked_cmp_greater(auto&& t, auto&& u) 
+CPP2_FORCE_INLINE constexpr auto unchecked_cmp_greater(auto&& t, auto&& u)
     -> decltype(auto)
     requires requires {CPP2_FORWARD(t) > CPP2_FORWARD(u);}
 {
     return CPP2_FORWARD(t) > CPP2_FORWARD(u);
 }
 
-CPP2_FORCE_INLINE constexpr auto unchecked_cmp_greater_eq(auto&& t, auto&& u) 
+CPP2_FORCE_INLINE constexpr auto unchecked_cmp_greater_eq(auto&& t, auto&& u)
     -> decltype(auto)
     requires requires {CPP2_FORWARD(t) >= CPP2_FORWARD(u);}
 {
     return CPP2_FORWARD(t) >= CPP2_FORWARD(u);
 }
 
-CPP2_FORCE_INLINE constexpr auto unchecked_div(auto&& t, auto&& u) 
+CPP2_FORCE_INLINE constexpr auto unchecked_div(auto&& t, auto&& u)
     -> decltype(auto)
     requires requires {CPP2_FORWARD(t) / CPP2_FORWARD(u);}
 {
     return CPP2_FORWARD(t) / CPP2_FORWARD(u);
 }
 
-CPP2_FORCE_INLINE constexpr auto unchecked_dereference(auto&& p) 
+CPP2_FORCE_INLINE constexpr auto unchecked_dereference(auto&& p)
 -> decltype(auto)
     requires requires {*CPP2_FORWARD(p);}
 {
     return *CPP2_FORWARD(p);
 }
 
-CPP2_FORCE_INLINE constexpr auto unchecked_subscript(auto&& a, auto&& b) 
+CPP2_FORCE_INLINE constexpr auto unchecked_subscript(auto&& a, auto&& b)
     -> decltype(auto)
     requires requires {CPP2_FORWARD(a)[b];}
 {
@@ -2477,7 +2614,7 @@ CPP2_FORCE_INLINE constexpr auto cmp_mixed_signedness_check() -> void
 }
 
 
-CPP2_FORCE_INLINE constexpr auto cmp_less(auto&& t, auto&& u) 
+CPP2_FORCE_INLINE constexpr auto cmp_less(auto&& t, auto&& u)
     -> decltype(auto)
     requires requires {CPP2_FORWARD(t) < CPP2_FORWARD(u);}
 {
@@ -2485,7 +2622,7 @@ CPP2_FORCE_INLINE constexpr auto cmp_less(auto&& t, auto&& u)
     return CPP2_FORWARD(t) < CPP2_FORWARD(u);
 }
 
-CPP2_FORCE_INLINE constexpr auto cmp_less(auto&& t, auto&& u) 
+CPP2_FORCE_INLINE constexpr auto cmp_less(auto&& t, auto&& u)
     -> decltype(auto)
 {
     static_assert(
@@ -2496,7 +2633,7 @@ CPP2_FORCE_INLINE constexpr auto cmp_less(auto&& t, auto&& u)
 }
 
 
-CPP2_FORCE_INLINE constexpr auto cmp_less_eq(auto&& t, auto&& u) 
+CPP2_FORCE_INLINE constexpr auto cmp_less_eq(auto&& t, auto&& u)
     -> decltype(auto)
     requires requires {CPP2_FORWARD(t) <= CPP2_FORWARD(u);}
 {
@@ -2504,7 +2641,7 @@ CPP2_FORCE_INLINE constexpr auto cmp_less_eq(auto&& t, auto&& u)
     return CPP2_FORWARD(t) <= CPP2_FORWARD(u);
 }
 
-CPP2_FORCE_INLINE constexpr auto cmp_less_eq(auto&& t, auto&& u) 
+CPP2_FORCE_INLINE constexpr auto cmp_less_eq(auto&& t, auto&& u)
     -> decltype(auto)
 {
     static_assert(
@@ -2515,7 +2652,7 @@ CPP2_FORCE_INLINE constexpr auto cmp_less_eq(auto&& t, auto&& u)
 }
 
 
-CPP2_FORCE_INLINE constexpr auto cmp_greater(auto&& t, auto&& u) 
+CPP2_FORCE_INLINE constexpr auto cmp_greater(auto&& t, auto&& u)
     -> decltype(auto)
     requires requires {CPP2_FORWARD(t) > CPP2_FORWARD(u);}
 {
@@ -2523,7 +2660,7 @@ CPP2_FORCE_INLINE constexpr auto cmp_greater(auto&& t, auto&& u)
     return CPP2_FORWARD(t) > CPP2_FORWARD(u);
 }
 
-CPP2_FORCE_INLINE constexpr auto cmp_greater(auto&& t, auto&& u) 
+CPP2_FORCE_INLINE constexpr auto cmp_greater(auto&& t, auto&& u)
     -> decltype(auto)
 {
     static_assert(
@@ -2534,7 +2671,7 @@ CPP2_FORCE_INLINE constexpr auto cmp_greater(auto&& t, auto&& u)
 }
 
 
-CPP2_FORCE_INLINE constexpr auto cmp_greater_eq(auto&& t, auto&& u) 
+CPP2_FORCE_INLINE constexpr auto cmp_greater_eq(auto&& t, auto&& u)
     -> decltype(auto)
     requires requires {CPP2_FORWARD(t) >= CPP2_FORWARD(u);}
 {
@@ -2542,7 +2679,7 @@ CPP2_FORCE_INLINE constexpr auto cmp_greater_eq(auto&& t, auto&& u)
     return CPP2_FORWARD(t) >= CPP2_FORWARD(u);
 }
 
-CPP2_FORCE_INLINE constexpr auto cmp_greater_eq(auto&& t, auto&& u) 
+CPP2_FORCE_INLINE constexpr auto cmp_greater_eq(auto&& t, auto&& u)
     -> decltype(auto)
 {
     static_assert(
@@ -2621,7 +2758,6 @@ constexpr auto as_() -> decltype(auto)
 
 
 }
-
 
 using cpp2::cpp2_new;
 
