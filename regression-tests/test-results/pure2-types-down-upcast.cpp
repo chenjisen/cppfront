@@ -82,20 +82,20 @@ auto func_const(cpp2::impl::in<B> b) -> void{std::cout << "Call B const: " + cpp
 auto test_const_foo() -> void{
  A s {}; 
   A const* sC {&s}; 
-  CPP2_UFCS(const_foo)(s);
-  CPP2_UFCS(const_foo)((*cpp2::impl::assert_not_null(sC)));
- CPP2_UFCS(const_foo)((cpp2::impl::as_<A>(s)));
-  CPP2_UFCS(const_foo)((cpp2::impl::as_<A>(*cpp2::impl::assert_not_null(sC))));
-  static_cast<void>(cpp2::move(s));
-  static_cast<void>(cpp2::move(sC));
+  CPP2_UFCS_0(const_foo, s);
+  CPP2_UFCS_0(const_foo, (*cpp2::assert_not_null(sC)));
+ CPP2_UFCS_0(const_foo, (cpp2::as_<A>(s)));
+  CPP2_UFCS_0(const_foo, (cpp2::as_<A>(*cpp2::assert_not_null(sC))));
+  static_cast<void>(std::move(s));
+  static_cast<void>(std::move(sC));
 }
 
 #line 29 "pure2-types-down-upcast.cpp2"
 auto test_mut_foo() -> void{
  A s {}; 
-  CPP2_UFCS(mut_foo)(s);
- CPP2_UFCS(mut_foo)((cpp2::impl::as_<A>(s)));
-  static_cast<void>(cpp2::move(s));
+  CPP2_UFCS_0(mut_foo, s);
+ CPP2_UFCS_0(mut_foo, (cpp2::as_<A>(s)));
+  static_cast<void>(std::move(s));
 }
 
 #line 36 "pure2-types-down-upcast.cpp2"

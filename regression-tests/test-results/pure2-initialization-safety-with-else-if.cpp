@@ -46,10 +46,10 @@ auto main(int const argc_, char** argv_) -> int{
     auto c {3}; 
     auto d {4}; 
 
-    if (CPP2_UFCS(size)(args) == 3) {
+    if (CPP2_UFCS_0(size, args) == 3) {
         p.construct(&a);
     }else {if (true) {
-        if (CPP2_UFCS(size)(args) == 2) {
+        if (CPP2_UFCS_0(size, args) == 2) {
             p.construct(&c);
         }else {if (cpp2::impl::cmp_greater(cpp2::move(b),0)) {
                 p.construct(&a);

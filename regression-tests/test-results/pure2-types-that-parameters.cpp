@@ -68,16 +68,16 @@ auto main() -> int;
 #line 25 "pure2-types-that-parameters.cpp2"
 auto main() -> int{
     myclass x {}; 
-    CPP2_UFCS(print)(x);
+    CPP2_UFCS_0(print, x);
 
     std::cout << "-----\n";
     auto y {x}; 
-    CPP2_UFCS(print)(x);
-    CPP2_UFCS(print)(cpp2::move(y));
+    CPP2_UFCS_0(print, x);
+    CPP2_UFCS_0(print, std::move(y));
 
     std::cout << "-----\n";
     auto z {std::move(x)}; 
-    CPP2_UFCS(print)(cpp2::move(x));
-    CPP2_UFCS(print)(cpp2::move(z));
+    CPP2_UFCS_0(print, std::move(x));
+    CPP2_UFCS_0(print, std::move(z));
 }
 

@@ -145,20 +145,20 @@ namespace N {
 #line 41 "pure2-types-inheritance.cpp2"
 auto make_speak(cpp2::impl::in<Human> h) -> void{
     std::cout << "-> [vcall: make_speak] ";
-    CPP2_UFCS(speak)(h);
+    CPP2_UFCS_0(speak, h);
 }
 
 #line 46 "pure2-types-inheritance.cpp2"
 auto do_work(cpp2::impl::in<N::Machine<99>> m) -> void{
     std::cout << "-> [vcall: do_work] ";
-    CPP2_UFCS(work)(m);
+    CPP2_UFCS_0(work, m);
 }
 
 #line 51 "pure2-types-inheritance.cpp2"
 auto main() -> int{
     Cyborg c {"Parsnip"}; 
-    CPP2_UFCS(print)(c);
-    CPP2_UFCS(make_speak)(c);
-    CPP2_UFCS(do_work)(cpp2::move(c));
+    CPP2_UFCS_0(print, c);
+    CPP2_UFCS_0(make_speak, c);
+    CPP2_UFCS_0(do_work, std::move(c));
 }
 

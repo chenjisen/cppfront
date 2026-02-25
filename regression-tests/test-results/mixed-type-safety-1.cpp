@@ -46,9 +46,9 @@ template<typename T> auto print(cpp2::impl::in<std::string> msg, T const& x) -> 
     ::print( "1   is int?", cpp2::impl::is<int>(1));
 
     auto c {cpp2_new<Circle>()}; // safe by construction
-    Shape* s {CPP2_UFCS(get)(cpp2::move(c))}; // safe by Lifetime
-    ::print("\ns* is Shape? ", cpp2::impl::is<Shape>(*cpp2::impl::assert_not_null(s)));
-    ::print(  "s* is Circle?", cpp2::impl::is<Circle>(*cpp2::impl::assert_not_null(s)));
-    ::print(  "s* is Square?", cpp2::impl::is<Square>(*cpp2::impl::assert_not_null(cpp2::move(s))));
+    Shape* s {CPP2_UFCS_0(get, std::move(c))}; // safe by Lifetime
+    print("\ns* is Shape?  ", cpp2::is<Shape>(*cpp2::assert_not_null(s)));
+    print(  "s* is Circle? ", cpp2::is<Circle>(*cpp2::assert_not_null(s)));
+    print(  "s* is Square? ", cpp2::is<Square>(*cpp2::assert_not_null(std::move(s))));
 }
 

@@ -63,9 +63,9 @@ auto fill(
     ) -> void
 
 {
-    if (cpp2::cpp2_default.is_active() && !(cpp2::impl::cmp_greater_eq(CPP2_UFCS(ssize)(value),count)) ) { cpp2::cpp2_default.report_violation(CPP2_CONTRACT_MSG("fill: value must contain at least count elements")); }
+    cpp2::Default.expects(cpp2::cmp_greater_eq(CPP2_UFCS_0(ssize, value),count), "fill: value must contain at least count elements");
 #line 25 "mixed-initialization-safety-3-contract-violation.cpp2"
-    x.construct(CPP2_UFCS(substr)(value, 0, count));
+    x.construct(CPP2_UFCS(substr, value, 0, count));
 }
 
 #line 28 "mixed-initialization-safety-3-contract-violation.cpp2"

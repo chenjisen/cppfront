@@ -59,10 +59,10 @@ auto insert_at(cpp2::impl::in<int> where, cpp2::impl::in<int> val) -> void
 #line 19 "mixed-postexpression-with-capture.cpp2"
 {
     cpp2::finally_presuccess cpp2_finally_presuccess;
-    if (cpp2::cpp2_default.is_active() && !(cpp2::impl::cmp_less_eq(0,where) && cpp2::impl::cmp_less_eq(where,CPP2_UFCS(ssize)(vec))) ) { cpp2::cpp2_default.report_violation(""); }
-    cpp2_finally_presuccess.add([&, _1 = CPP2_UFCS(size)(vec)]{if (cpp2::cpp2_default.is_active() && !(CPP2_UFCS(size)(vec) == _1 + 1) ) { cpp2::cpp2_default.report_violation(""); }} );
+    cpp2::Default.expects(cpp2::cmp_less_eq(0,where) && cpp2::cmp_less_eq(where,CPP2_UFCS_0(ssize, vec)), "");
+    cpp2_finally_presuccess.add([&, _1 = CPP2_UFCS_0(size, vec)]{cpp2::Default.expects(CPP2_UFCS_0(size, vec) == _1 + 1, "");} );
 #line 20 "mixed-postexpression-with-capture.cpp2"
-    CPP2_UFCS(push_back)(vec, val);
+    CPP2_UFCS(push_back, vec, val);
 }
 
 #line 23 "mixed-postexpression-with-capture.cpp2"
@@ -71,7 +71,7 @@ auto insert_at(cpp2::impl::in<int> where, cpp2::impl::in<int> val) -> void
 {
     cpp2::finally_presuccess cpp2_finally_presuccess;
     std::string ret {"xyzzy"};
-    cpp2_finally_presuccess.add([&, _1 = CPP2_UFCS(length)(ret)]{if (cpp2::cpp2_default.is_active() && !(CPP2_UFCS(length)(ret) == _1 + 5) ) { cpp2::cpp2_default.report_violation(""); }} );
+    cpp2_finally_presuccess.add([&, _1 = CPP2_UFCS_0(length, ret)]{cpp2::Default.expects(CPP2_UFCS_0(length, ret) == _1 + 5, "");} );
 #line 26 "mixed-postexpression-with-capture.cpp2"
     ret += " and ";
 cpp2_finally_presuccess.run(); return ret; }
@@ -84,7 +84,7 @@ cpp2_finally_presuccess.run(); return ret; }
 cpp2::finally_presuccess cpp2_finally_presuccess;
 std::string a {"xyzzy"};
 std::string b {"plugh"};
-cpp2_finally_presuccess.add([&]{if (cpp2::cpp2_default.is_active() && !([_0 = CPP2_UFCS(length)(a), _1 = CPP2_UFCS(length)(b), _2 = 5]{ return _0==_1 && _1==_2; }()) ) { cpp2::cpp2_default.report_violation(""); }} );
+cpp2_finally_presuccess.add([&]{cpp2::Default.expects([_0 = CPP2_UFCS_0(length, a), _1 = CPP2_UFCS_0(length, b), _2 = 5]{ return _0==_1 && _1==_2; }(), "");} );
 #line 30 "mixed-postexpression-with-capture.cpp2"
 cpp2_finally_presuccess.run(); return  { std::move(a), std::move(b) }; 
 

@@ -40,8 +40,8 @@ auto add_42_to_subrange(auto& rng, cpp2::impl::in<int> start, cpp2::impl::in<int
 #line 10 "mixed-bounds-safety-with-assert-2.cpp2"
 auto add_42_to_subrange(auto& rng, cpp2::impl::in<int> start, cpp2::impl::in<int> end) -> void
 {
-    if (cpp2::bounds_safety.is_active() && !(cpp2::impl::cmp_less_eq(0,start)) ) { cpp2::bounds_safety.report_violation(""); }
-    if (cpp2::bounds_safety.is_active() && !(cpp2::impl::cmp_less_eq(end,CPP2_UFCS(ssize)(rng))) ) { cpp2::bounds_safety.report_violation(""); }
+    cpp2::Bounds.expects(cpp2::cmp_less_eq(0,start), "");
+    cpp2::Bounds.expects(cpp2::cmp_less_eq(end,CPP2_UFCS_0(ssize, rng)), "");
 
     auto count {0}; 
     for ( 

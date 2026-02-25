@@ -35,7 +35,7 @@ auto print_and_decorate(auto const& x) -> void;
     static_cast<void>(cpp2::move(words));
 
     auto i {0}; 
-    for( ; cpp2::impl::cmp_less(i,CPP2_UFCS(ssize)(s)); ++i ) {
+    for( ; cpp2::cmp_less(i,CPP2_UFCS_0(ssize, s)); ++i ) {
         print_and_decorate(CPP2_ASSERT_IN_BOUNDS(s, i));
     }
 }

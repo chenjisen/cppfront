@@ -33,7 +33,7 @@ struct custom_struct_with_no_stringize_customization { } custom;
     std::cout << "a = " + cpp2::to_string(a) + ", b = " + cpp2::to_string(b) + "\n";
 
     b = 42;
-    std::cout << "a^2 + b = " + cpp2::to_string(a * a + CPP2_UFCS(value)(cpp2::move(b))) + "\n";
+    std::cout << "a^2 + b = " + cpp2::to_string(a * std::move(a) + CPP2_UFCS_0(value, std::move(b))) + "\n";
 
     std::string_view sv {"my string_view"}; 
     std::cout << "sv = " + cpp2::to_string(cpp2::move(sv)) + "\n";

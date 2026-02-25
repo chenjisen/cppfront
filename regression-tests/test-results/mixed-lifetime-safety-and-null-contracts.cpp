@@ -48,7 +48,7 @@ auto call_my_framework(const char* msg CPP2_SOURCE_LOCATION_PARAM) {
 
 #line 6 "mixed-lifetime-safety-and-null-contracts.cpp2"
 [[nodiscard]] auto main() -> int{
-    CPP2_UFCS(set_handler)(cpp2::null_safety, &call_my_framework);
+    CPP2_UFCS(set_handler, cpp2::Null, &call_my_framework);
     try_pointer_stuff();
     std::cout << "done\n";
 }

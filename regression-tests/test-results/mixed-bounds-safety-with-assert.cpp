@@ -36,10 +36,9 @@ auto print_subrange(auto const& rng, cpp2::impl::in<int> start, cpp2::impl::in<i
     print_subrange(cpp2::move(v), 1, 13);
 }
 
-#line 9 "mixed-bounds-safety-with-assert.cpp2"
-auto print_subrange(auto const& rng, cpp2::impl::in<int> start, cpp2::impl::in<int> end) -> void{
-    if (cpp2::bounds_safety.is_active() && !(cpp2::impl::cmp_less_eq(0,start)) ) { cpp2::bounds_safety.report_violation(""); }
-    if (cpp2::bounds_safety.is_active() && !(cpp2::impl::cmp_less_eq(end,CPP2_UFCS(ssize)(rng))) ) { cpp2::bounds_safety.report_violation(""); }
+auto print_subrange(auto const& rng, cpp2::in<int> start, cpp2::in<int> end) -> void{
+    cpp2::Bounds.expects(cpp2::cmp_less_eq(0,start), "");
+    cpp2::Bounds.expects(cpp2::cmp_less_eq(end,CPP2_UFCS_0(ssize, rng)), "");
 
     auto count {0}; 
     for ( 
