@@ -31,16 +31,10 @@
 //      because it can't happen; using the name impl::deferred_init directly
 //      from program code is not supported.
 // 
-//  3)  Entities in other subnamespaces, such as cpp2::string_util
-// 
-//      These are typically metafunction "runtime-library" functions,
-//      implementation details called by metafunction-generated code.
-//      For example, @regex generates code that uses string_util:: functions.
-// 
 //===========================================================================
 
-#ifndef CPP2_CPP2UTIL_H
-#define CPP2_CPP2UTIL_H
+#ifndef CPP2_UTIL_H
+#define CPP2_UTIL_H
 
 //  If this implementation doesn't support source_location yet, disable it
 #include <version>
@@ -275,7 +269,6 @@
     #include <sstream>
     #include <iterator>
     #include <limits>
-    #include <map>
     #include <memory>
     #include <numeric>
     #include <new>
@@ -284,10 +277,7 @@
     #if defined(CPP2_USE_SOURCE_LOCATION)
         #include <source_location>
     #endif
-    #include <ranges>
-    #include <set>
     #include <span>
-    #include <sstream>
     #include <string>
     #include <string_view>
     #include <system_error>
@@ -379,6 +369,8 @@ constexpr auto gcc_clang_msvc_min_versions(
 #endif
 
 
+namespace cpp2 {
+
 // Workaround <https://github.com/llvm/llvm-project/issues/70556>.
 #define CPP2_FORCE_INLINE_LAMBDA_CLANG /* empty */
 
@@ -457,351 +449,6 @@ using longdouble = long double;
 //  Strongly discouraged, for compatibility/interop only
 using _schar     = signed char;      // normally use i8 instead
 using _uchar     = unsigned char;    // normally use u8 instead
-
-
-//-----------------------------------------------------------------------
-//
-//  An implementation of GSL's narrow_cast with a clearly 'unchecked' name
-//
-//-----------------------------------------------------------------------
-//
-namespace impl {
-
-template< typename To, typename From >
-constexpr auto is_narrowing_v =
-    // [dcl.init.list] 7.1
-    (std::is_floating_point_v<From> && std::is_integral_v<To>) ||
-    // [dcl.init.list] 7.2
-    (std::is_floating_point_v<From> && std::is_floating_point_v<To> && sizeof(From) > sizeof(To)) || // NOLINT(misc-redundant-expression)
-    // [dcl.init.list] 7.3
-    (std::is_integral_v<From> && std::is_floating_point_v<To>) ||
-    (std::is_enum_v<From> && std::is_floating_point_v<To>) ||
-    // [dcl.init.list] 7.4
-    (std::is_integral_v<From> && std::is_integral_v<To> && sizeof(From) > sizeof(To)) || // NOLINT(misc-redundant-expression)
-    (std::is_enum_v<From> && std::is_integral_v<To> && sizeof(From) > sizeof(To)) ||
-    // [dcl.init.list] 7.5
-    (std::is_pointer_v<From> && std::is_same_v<To, bool>)
-    ;
-
-}
-
-
-template <typename C, typename X>
-constexpr auto unchecked_narrow( X x ) noexcept 
-    -> decltype(auto)
-    requires (
-        impl::is_narrowing_v<C, X>
-        || (
-            std::is_arithmetic_v<C>
-            && std::is_arithmetic_v<X>
-            )
-        )
-{
-    return static_cast<C>(x);
-}
-
-
-template <typename C, typename X>
-constexpr auto unchecked_cast( X&& x ) noexcept 
-    -> decltype(auto)
-{
-    return static_cast<C>(CPP2_FORWARD(x));
-}
-
-
-//-----------------------------------------------------------------------
-//
-//  contract_group
-//
-//-----------------------------------------------------------------------
-//
-
-#ifdef CPP2_USE_SOURCE_LOCATION
-    #define CPP2_SOURCE_LOCATION_PARAM              , [[maybe_unused]] std::source_location where
-    #define CPP2_SOURCE_LOCATION_PARAM_WITH_DEFAULT , [[maybe_unused]] std::source_location where = std::source_location::current()
-    #define CPP2_SOURCE_LOCATION_PARAM_SOLO         [[maybe_unused]] std::source_location where
-    #define CPP2_SOURCE_LOCATION_ARG                , where
-    #define CPP2_SOURCE_LOCATION_VALUE              (cpp2::to_string(where.file_name()) + "(" + cpp2::to_string(where.line()) + ") " + where.function_name())
-#else
-    #define CPP2_SOURCE_LOCATION_PARAM
-    #define CPP2_SOURCE_LOCATION_PARAM_WITH_DEFAULT
-    #define CPP2_SOURCE_LOCATION_PARAM_SOLO
-    #define CPP2_SOURCE_LOCATION_ARG
-    #define CPP2_SOURCE_LOCATION_VALUE              std::string("")
-#endif
-
-//  For C++23: make this std::string_view and drop the macro
-//      Before C++23 std::string_view was not guaranteed to be trivially copyable,
-//      and so in<T> will pass it by const& and really it should be by value
-#define CPP2_MESSAGE_PARAM  char const*
-#define CPP2_CONTRACT_MSG   cpp2::message_to_cstr_adapter
-
-inline auto message_to_cstr_adapter( CPP2_MESSAGE_PARAM msg ) -> CPP2_MESSAGE_PARAM { return msg ? msg : ""; }
-inline auto message_to_cstr_adapter( std::string const& msg ) -> CPP2_MESSAGE_PARAM { return msg.c_str(); }
-
-class contract_group {
-public:
-    using handler = void (*)(CPP2_MESSAGE_PARAM msg CPP2_SOURCE_LOCATION_PARAM);
-
-    constexpr contract_group  (handler h = {}) : reporter{h} { }
-    constexpr auto set_handler(handler h = {}) { reporter = h; }
-    constexpr auto is_active  () const -> bool    { return reporter != handler{}; }
-
-    constexpr auto enforce(bool b, CPP2_MESSAGE_PARAM msg = "" CPP2_SOURCE_LOCATION_PARAM_WITH_DEFAULT)
-                                          -> void { if (!b) report_violation(msg CPP2_SOURCE_LOCATION_ARG); }
-    constexpr auto report_violation(CPP2_MESSAGE_PARAM msg = "" CPP2_SOURCE_LOCATION_PARAM_WITH_DEFAULT)
-                                          -> void { if (reporter) reporter(msg CPP2_SOURCE_LOCATION_ARG); }
-private:
-    handler reporter;
-};
-
-[[noreturn]] inline auto report_and_terminate(std::string_view group, CPP2_MESSAGE_PARAM msg = "" CPP2_SOURCE_LOCATION_PARAM_WITH_DEFAULT) noexcept -> void {
-    std::cerr
-#ifdef CPP2_USE_SOURCE_LOCATION
-        << where.file_name() << "("
-        << where.line() << ") "
-        << where.function_name() << ": "
-#endif
-        << group << " violation";
-    if (msg && msg[0] != '\0') {
-        std::cerr << ": " << msg;
-    }
-    std::cerr << "\n";
-    std::exit(EXIT_FAILURE);
-}
-
-auto inline cpp2_default = contract_group(
-    [](CPP2_MESSAGE_PARAM msg CPP2_SOURCE_LOCATION_PARAM)noexcept {
-        report_and_terminate("Contract",      msg CPP2_SOURCE_LOCATION_ARG);
-    }
-);
-auto inline bounds_safety = contract_group(
-    [](CPP2_MESSAGE_PARAM msg CPP2_SOURCE_LOCATION_PARAM)noexcept {
-        report_and_terminate("Bounds safety", msg CPP2_SOURCE_LOCATION_ARG);
-    }
-);
-auto inline null_safety = contract_group(
-    [](CPP2_MESSAGE_PARAM msg CPP2_SOURCE_LOCATION_PARAM)noexcept {
-        report_and_terminate("Null safety",   msg CPP2_SOURCE_LOCATION_ARG);
-    }
-);
-auto inline type_safety = contract_group(
-    [](CPP2_MESSAGE_PARAM msg CPP2_SOURCE_LOCATION_PARAM)noexcept {
-        report_and_terminate("Type safety",   msg CPP2_SOURCE_LOCATION_ARG);
-    }
-);
-auto inline testing = contract_group(
-    [](CPP2_MESSAGE_PARAM msg CPP2_SOURCE_LOCATION_PARAM)noexcept {
-        report_and_terminate("Testing",       msg CPP2_SOURCE_LOCATION_ARG);
-    }
-);
-
-
-//-----------------------------------------------------------------------
-//
-//  String utilities
-//
-
-namespace string_util {
-
-//  Break a string_view into a vector of views of simple qidentifier
-//  substrings separated by other characters
-inline auto split_string_list(std::string_view str)
-    -> std::vector<std::string_view>
-{
-    std::vector<std::string_view> ret;
-
-    auto is_id_char = [](char c) { 
-        return std::isalnum(c) || c == '_';
-    };
-
-    auto pos = decltype(std::ssize(str)){ 0 };
-    while( pos < std::ssize(str) ) {
-        //  Skip non-alnum
-        while (pos < std::ssize(str) && !is_id_char(str[pos])) {
-            ++pos;
-        }
-        auto start = pos;
-
-        //  Find the end of the current component
-        while (pos < std::ssize(str) && is_id_char(str[pos])) {
-            ++pos;
-        }
-
-        //  Add nonempty substring to the vector
-        if (start < pos) {
-            ret.emplace_back(str.substr(start, pos - start));
-        }
-    }
-
-    return ret;
-}
-
-
-//  From https://stackoverflow.com/questions/216823/how-to-trim-a-stdstring
-
-//  Trim from start (in place)
-inline void ltrim(std::string &s) {
-    s.erase(
-        s.begin(), 
-        std::find_if(s.begin(), s.end(), [](unsigned char ch) { return !std::isspace(ch); })
-    );
-}
-
-//  Trim from end (in place)
-inline void rtrim(std::string &s) {
-    s.erase(
-        std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) { return !std::isspace(ch); }).base(), 
-        s.end()
-    );
-}
-
-//  Trim from both ends (in place)
-inline void trim(std::string &s) {
-    rtrim(s);
-    ltrim(s);
-}
-
-//  Trim from both ends (copying)
-inline std::string trim_copy(std::string_view s) {
-    std::string t(s);
-    trim(t);
-    return t;
-}
-
-//  From https://oleksandrkvl.github.io/2021/04/02/cpp-20-overview.html#nttp
-
-template<typename CharT, std::size_t N>
-struct fixed_string {
-    constexpr fixed_string(const CharT (&s)[N+1]) {
-        std::copy_n(s, N + 1, c_str);
-    }
-    constexpr const CharT* data() const {
-        return c_str;
-    }
-    constexpr std::size_t size() const {
-        return N;
-    }
-
-    constexpr auto str() const {
-        return std::basic_string<CharT>(c_str);
-    }
-
-    CharT c_str[N+1];
-};
-
-template<typename CharT, std::size_t N>
-fixed_string(const CharT (&)[N])->fixed_string<CharT, N-1>;
-
-//  Other string utility functions.
-
-constexpr bool is_escaped(std::string_view s) {
-    return 
-        s.starts_with("\"") 
-        && s.ends_with("\"")
-        ;
-}
-
-inline bool string_to_int(std::string const& s, int& v, int base = 10) {
-#ifndef CPP2_NO_EXCEPTIONS
-    try {
-        v = stoi(s, nullptr, base);
-        return true;
-    }
-    catch (std::invalid_argument const&)
-    {
-        return false;
-    }
-    catch (std::out_of_range const&)
-    {
-        return false;
-    }
-#else
-    errno = 0;
-    char* end = nullptr;
-
-    auto const num = std::strtol(s.c_str(), &end, base);
-
-    cpp2_default.enforce(end != nullptr);
-    if (
-        end == s.c_str() 
-        || *end != '\0'
-        )
-    {
-        return false; // invalid argument
-    }
-    if (
-        errno == ERANGE 
-        || num < std::numeric_limits<int>::min() 
-        || num > std::numeric_limits<int>::max()
-        )
-    {
-        return false; // out of range
-    }
-
-    v = unchecked_narrow<int>(num);
-    return true;
-#endif
-}
-
-template<int Base = 10>
-inline std::string int_to_string(int i) {
-    if constexpr (8 == Base) {
-        std::ostringstream oss;
-        oss << std::oct << i;
-        return oss.str();
-    }
-    else if constexpr (10 == Base) {
-        return std::to_string(i);
-    }
-    else if constexpr (16 == Base) {
-        std::ostringstream oss;
-        oss << std::hex << i;
-        return oss.str();
-    }
-    else {
-        [] <bool flag = false>() {
-            static_assert(flag, "Unsupported int_to_string Base");
-        }();
-    }
-}
-
-inline char safe_toupper(char ch) {
-    return static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
-}
-
-inline char safe_tolower(char ch) {
-    return static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
-}
-
-inline std::string replace_all(
-    std::string        str, 
-    const std::string& from, 
-    const std::string& to
-)
-{
-    size_t start_pos = 0;
-    while((start_pos = str.find(from, start_pos)) != std::string::npos) {
-        str.replace(start_pos, from.length(), to);
-        start_pos += to.length();   // safe also when 'to' is a substring of 'from'
-    }
-    return str;
-}
-
-template<typename List>
-inline std::string join(List const& list) {
-    std::string r = "";
-    std::string sep = "";
-
-    for (auto const& cur : list) {
-        r += sep + cur;
-        sep = ", ";
-    }
-
-    return r;
-}
-
-} // namespace string_util
 
 
 //-----------------------------------------------------------------------
@@ -2974,6 +2621,7 @@ constexpr auto as_() -> decltype(auto)
 
 
 }
+
 
 using cpp2::cpp2_new;
 
